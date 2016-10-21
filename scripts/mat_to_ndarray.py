@@ -11,7 +11,7 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "i:o:", ["ifile=","odir="])
     except getopt.GetoptError:
-        print 'test.py -i <inputfile> -o <outputdir>'
+        print( 'test.py -i <inputfile> -o <outputdir>' )
         sys.exit(2)
     for opt, arg in opts:
         if opt in ("-i", "--ifile"):
@@ -19,8 +19,8 @@ def main(argv):
         elif opt in ("-o", "--odir"):
             outputdir = arg
     
-    if(not inputf or not outputf):
-        print 'test.py -i <inputfile> -o <outputdir>'
+    if(not inputf or not outputdir):
+        print( 'test.py -i <inputfile> -o <outputdir>' )
         sys.exit(2)
 
     if(os.path.isdir(inputf)):
