@@ -44,8 +44,10 @@ class EEGDataLoader:
                     except:
                         print( 'Could not load:' + base )
                         pass
-    
-    def next()
+
+    def next():
+        
+        
 
 def main(argv):
     inputf = ''
