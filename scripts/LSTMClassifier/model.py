@@ -14,7 +14,7 @@ n_channels = 16
 n_hidden = 64
 n_classes = 2
 
-n_steps = 2048 
+n_steps = 1024 
 
 x = tf.placeholder("float", [batch_size, n_steps, n_channels])
 y = tf.placeholder("float", [batch_size, n_classes])
