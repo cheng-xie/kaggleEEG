@@ -5,9 +5,9 @@ import sys
 
 from utils import EEGDataLoader
 
-learning_rate = 0.001
-training_iters = 1000
-batch_size = 128
+learning_rate = 0.00005
+training_iters = 100000
+batch_size = 64 
 display_step = 2
 
 n_channels = 16
@@ -27,7 +27,7 @@ biases = {
     'out': tf.Variable( tf.random_normal([n_classes]) )
 }
 
-def BiRNN(x, weigths, biases):
+def BiRNN(x, weights, biases):
     # shape of x will be (batch_size, n_steps, n_channels)
     # need to transform to (n_steps, batch_size, n_channels) to comply with tf bi_rnn
     x = tf.transpose(x, [1, 0, 2])
