@@ -5,7 +5,8 @@ import re
 
 # Traverse through whole directory and compile all as one numpy array
 class EEGDataLoader:
-    def __init__(self, trainf, testf, batch_size, window_size, stride):
+
+    def __init__(self, traindir, testdir, batch_size, window_size, stride):
         # Save paramaters
         self.batch_size = batch_size
         self.window_size = window_size
@@ -18,12 +19,18 @@ class EEGDataLoader:
         self.load(trainf, testf)
 
         # TODO: figure out the batching
-        # self.indices = np.arrange(0,)
+        
+        self.indices = np.arrange(0,)
 
 
-    def load(self, trainf, testf):
-        self.train_array = []
-        self.test_array = []
+    def load(self, traindir, testf):
+       
+
+    def load_train_folder(self, trainf):
+        self.train_array0 = []
+        self.train_array1 = []
+        self.test_array0 = []
+        self.test_array1 = []
         if(os.path.isdir(trainf)):
             for filename in os.listdir(trainf):
                 base, ext = os.path.splitext(os.path.basename(filename)) 
@@ -46,20 +53,31 @@ class EEGDataLoader:
                         #    print( 'Could not load:' + base )
                         #    pass
         
-        '''
-        if(os.path.isdir(testf)):
-                for filename in os.listdir(testf):
-                base, ext = os.path.splitext() 
+    def load_test_folder(self, testf):
+        self.test_array = []
+        if(os.path.isdir(trainf)):
+            for filename in os.listdir(trainf):
+                base, ext = os.path.splitext(os.path.basename(filename)) 
                 if( filename.endswith('.npy') ):
-                try:
-                sequence = np.load(filename)
-                self.test_array = np.append(self.test_array, [sequence], axis = 0)
-                except:
-                print( 'Could not load:' + base )
-                pass
-        '''
+                    _, _, y = re.findall('(\d+)\_(\d+)\_(\d+)', base)[0]
+                    if (y == '0'):
+                        #try:
+                        self.train_array0.append(np.load(os.path.join(trainf, filename))['data'][()])
+                        print( 'Loaded:' + base + ' ' + str(self.train_array0[-1].shape))
+                        #except:
+                        #    print( 'Could not load:' + base )
+                        #    pass
+                    elif (y == '1'):
+                        #try:
+                        #self.train_array1.append(np.load(filename)['data'])
+                        self.train_array1.append(np.load(os.path.join(trainf, filename))['data'][()])
+                        print( 'Loaded:' + base + ' ' + str(self.train_array1[-1].shape))
+        
+                        #except:
+                        #    print( 'Could not load:' + base )
+                        #    pass
 
-    def next(self):
+    def next_batch(self):
         # generate random batch, make sure to keep proportion between 
         # positive and negative samples
         n = self.batch_size/2
@@ -94,3 +112,6 @@ class EEGDataLoader:
         np.random.shuffle(batch_y)
         
         return batch_x, batch_y
+
+    def test_batch(self):
+        # return

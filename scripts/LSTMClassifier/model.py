@@ -5,16 +5,16 @@ import sys
 
 from utils import EEGDataLoader
 
-learning_rate = 0.00005
+learning_rate = 0.00006
 training_iters = 100000
 batch_size = 64 
-display_step = 2
+display_step = 4
 
 n_channels = 16
-n_hidden = 64
+n_hidden = 128 
 n_classes = 2
 
-n_steps = 1024 
+n_steps = 2048 
 
 x = tf.placeholder("float", [batch_size, n_steps, n_channels])
 y = tf.placeholder("float", [batch_size, n_classes])
@@ -65,6 +65,9 @@ with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=4)) as sess:
     dataloader = EEGDataLoader(trainf, testf, batch_size, n_steps, stride)  
     sess.run(init)
     step = 1
+    ma_acc = 0
+    ma_loss = 0
+
     while step * batch_size < training_iters:
         batch_x, batch_y = dataloader.next()
         # Run optimization op (backprop)
@@ -72,11 +75,17 @@ with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=4)) as sess:
         if step % display_step == 0:
             # Calculate batch accuracy
             acc = sess.run(accuracy, feed_dict={x: batch_x, y: batch_y})
+            ma_acc = acc*0.25 + ma_acc*0.75
+
             # Calculate batch loss
             loss = sess.run(cost, feed_dict={x: batch_x, y: batch_y})
+            ma_loss = loss*0.25 + ma_loss*0.75
+
             print("Iter " + str(step*batch_size) + ", Minibatch Loss= " + \
                   "{:.6f}".format(loss) + ", Training Accuracy= " + \
-                  "{:.5f}".format(acc))
+                  "{:.5f}".format(acc) + ", MA Loss= " + \
+                  "{:.6f}".format(ma_loss) + ", MA Training= " + \
+                  "{:.5f}".format(ma_acc))
         step += 1
     print("Optimization Finished!")
 
