@@ -2,6 +2,8 @@ import os
 import sys
 import numpy as np
 import re
+import math
+import random
 
 '''
 The strategy of the data loader is to load all the 
@@ -18,20 +20,8 @@ class EEGDataLoader:
         self.window_size = window_size
         self.stride = stride
         
+        # scan files and add to filenames
         self.filenames = {0:[], 1:[]}
-
-        # setup data ndarrays
-        self.train_array0 = []
-        self.train_array1 = []
-        self.test_array = []
-        self.load(trainf, testf)
-
-        # TODO: figure out the batchin
-        self.indices = np.arrange(0,)
-
-
-    def load(self, traindir, testf):
-        # Load all the data, calculate ratios and assign batches
         if(os.path.isdir(trainf)):
             for filename in os.listdir(trainf):
                 base, ext = os.path.splitext(os.path.basename(filename)) 
@@ -47,40 +37,62 @@ class EEGDataLoader:
                         #self.train_array1.append(np.load(filename)['data'])
                         self.filenames[1].append(os.path.join(trainf, filename))
                         print( 'Loaded:' + base + ' ' + str(self.train_array1[-1].shape))
+
+        # partition filenames into batches for first epoch
+        self.batched_filenames = [] 
+        self.next_epoch()
+
+        # setup data lists for first batch 
+        self.train_array = ([],[])
+        self.test_array = []
+        self.cur_batch = 0
+        # store indices for all data slices so we can shuffle
+        self.batch_indices = ([],[])
+        self.load_batch()
+
+    def load_batch(self):
+        '''
+        Loads the files of the current batch cycle.
+        Sets up the indices for shuffling minibatches.
+        '''
+        self.train_array = ([],[])
+        for filename in self.batched_filenames[self.cur_batch][0]:
+            self.train_array[0].append(np.load(filename)['data'][()])
+        for filename in self.batched_filenames[self.cur_batch][1]:
+            self.train_array[1].append(np.load(filename)['data'][()])
         
+        self.batch_indices[0] = [(x,y) for x in xrange(stuff) for y in xrange(stuff)]
+        self.batch_indices[1] = [(x,y) for x in xrange(stuff) for y in xrange(stuff)]
+        
+        random.shuffle(self.batch_indices[0])
+        random.shuffle(self.batch_indices[1])
+
+    def next_epoch(self):
+        '''
+        Called after an epoch has been completed. 
+        Resets data indices and repartitions filenames for batches.
+        '''
+        # TODO: Zero out indices and clean up stuff
+
+
+        # scramble filenames and repartition
+        random.shuffle(self.filenames[0])
+        random.shuffle(self.filenames[1])
+
+        # compute partition for the files to be loaded 
         n_pos = len(self.filenames[1])
-        n_neg = len(self.filenames[0])
-        
+        n_neg = len(self.filenames[0])        
         class_ratio = float(n_neg) / n_pos
         num_batches = (n_pos + n_neg) / MAX_LOAD_FILES
+        batched_0s = list(chunks(self.filenames[0]))
+        batched_1s = list(chunks(self.filenames[1]))
+        self.batched_filenames = zip(batched_0s, batched_1s)
 
-    def load_train_folder(self, trainf):
-        self.train_array0 = []
-        self.train_array1 = []
-        self.test_array0 = []
-        self.test_array1 = []
-        if(os.path.isdir(trainf)):
-            for filename in os.listdir(trainf):
-                base, ext = os.path.splitext(os.path.basename(filename)) 
-                if( filename.endswith('.npy') ):
-                    _, _, y = re.findall('(\d+)\_(\d+)\_(\d+)', base)[0]
-                    if (y == '0'):
-                        #try:
-                        self.train_array0.append(np.load(os.path.join(trainf, filename))['data'][()])
-                        print( 'Loaded:' + base + ' ' + str(self.train_array0[-1].shape))
-                        #except:
-                        #    print( 'Could not load:' + base )
-                        #    pass
-                    elif (y == '1'):
-                        #try:
-                        #self.train_array1.append(np.load(filename)['data'])
-                        self.train_array1.append(np.load(os.path.join(trainf, filename))['data'][()])
-                        print( 'Loaded:' + base + ' ' + str(self.train_array1[-1].shape))
-        
-                        #except:
-                        #    print( 'Could not load:' + base )
-                        #    pass
-        
+    def chunks(l, n):
+        """Yield successive n-sized chunks from l."""
+            for i in range(0, len(l), n):
+                yield l[i:i + n]
+
     def load_test_folder(self, testf):
         self.test_array = []
         if(os.path.isdir(trainf)):
@@ -92,20 +104,14 @@ class EEGDataLoader:
                         #try:
                         self.train_array0.append(np.load(os.path.join(trainf, filename))['data'][()])
                         print( 'Loaded:' + base + ' ' + str(self.train_array0[-1].shape))
-                        #except:
-                        #    print( 'Could not load:' + base )
-                        #    pass
-                    elif (y == '1'):
+   
+                   elif (y == '1'):
                         #try:
                         #self.train_array1.append(np.load(filename)['data'])
                         self.train_array1.append(np.load(os.path.join(trainf, filename))['data'][()])
                         print( 'Loaded:' + base + ' ' + str(self.train_array1[-1].shape))
         
-                        #except:
-                        #    print( 'Could not load:' + base )
-                        #    pass
-
-    def next_batch(self):
+    def next_mini_batch(self):
         # generate random batch, make sure to keep proportion between 
         # positive and negative samples
         n = self.batch_size/2
