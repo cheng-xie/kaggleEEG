@@ -20,23 +20,20 @@ class EEGDataLoader:
         self.window_size = window_size
         self.stride = stride
         
-        # scan files and add to filenames
         self.filenames = {0:[], 1:[]}
+        # scan files and add to filenames
         if(os.path.isdir(trainf)):
             for filename in os.listdir(trainf):
                 base, ext = os.path.splitext(os.path.basename(filename)) 
                 if( filename.endswith('.npy') ):
                     _, _, y = re.findall('(\d+)\_(\d+)\_(\d+)', base)[0]
                     if (y == '0'):
-                        #try:
                         self.filenames[0].append(os.path.join(trainf, filename))
-                        print( 'Loaded:' + base + ' ' + str(self.train_array0[-1].shape))
+                        print( 'Found:' + base)
 
                     elif (y == '1'):
-                        #try:
-                        #self.train_array1.append(np.load(filename)['data'])
                         self.filenames[1].append(os.path.join(trainf, filename))
-                        print( 'Loaded:' + base + ' ' + str(self.train_array1[-1].shape))
+                        print( 'Found:' + base)
 
         # partition filenames into batches for first epoch
         self.batched_filenames = [] 
@@ -47,11 +44,12 @@ class EEGDataLoader:
         self.test_array = []
         self.cur_batch = 0
         # store indices for all data slices so we can shuffle
-        self.batch_indices = ([],[])
+        self.window_indices = ([],[])
         self.load_batch()
 
-        #
-        self.mini_batch_index = 0
+        # stores how far we are along the examples of train_array
+        self.mini_batch_index = (0,0)
+        
 
     def load_batch(self):
         '''
@@ -59,23 +57,26 @@ class EEGDataLoader:
         Sets up the indices for shuffling minibatches.
         '''
         self.train_array = ([],[])
-        self.batch_indices = ([],[])
+        self.window_indices = ([],[])
 
-        # iterate over files, add them 
+        # iterate over files, load their data and add each possible window to indices for minibatch loading 
         for i, filename in enumerate(self.batched_filenames[self.cur_batch][0]):
             self.train_array[0].append(np.load(filename)['data'][()])
             n = self.train_array[0][-1].shape[0]
             windows = (n-1-self.window_size)/self.stride
-            self.batch_indices[0] += [ (i,x) for x in xrange(-1, windows+1) ]
+            self.window_indices[0] += [ (i,x) for x in xrange(-1, windows+1) ]
+            print(str(i) + ' ' + filename + '\t' + str(self.train_array[0][-1].shape))
         
         for i, filename in enumerate(self.batched_filenames[self.cur_batch][1]):
             self.train_array[1].append(np.load(filename)['data'][()])
             n = self.train_array[1][-1].shape[0]
             windows = (n-1-self.window_size)/self.stride
-            self.batch_indices[1] += [ (i,x) for x in xrange(-1, windows+1) ]
+            self.window_indices[1] += [ (i,x) for x in xrange(-1, windows+1) ]
+            print(str(i) + ' ' + filename + '\t' + str(self.train_array[1][-1].shape))
         
-        random.shuffle(self.batch_indices[0])
-        random.shuffle(self.batch_indices[1])
+        # shuffle the indices
+        random.shuffle(self.window_indices[0])
+        random.shuffle(self.window_indices[1])
 
     def next_epoch(self):
         '''
@@ -122,29 +123,44 @@ class EEGDataLoader:
                         print( 'Loaded:' + base + ' ' + str(self.train_array1[-1].shape))
         
     def next_mini_batch(self):
-        # generate random batch, make sure to keep proportion between 
+        # generate random mini batch, make sure to keep proportion between 
+        # will process all files for one epoch and generate all mini batches
+        # will return when epoch is complete
+        
         # positive and negative samples
         n = self.mini_batch_size/2
-        batch_x = np.zeros((self.mini_batch_size, self.window_size, 16))
-       
-         
+        mini_batch_x = np.zeros((self.mini_batch_size, self.window_size, 16))
+        
+        # check if we are done with this batch
+        if ( self.mini_batch_index[0] + n >= len(self.window_indices[0]) ): 
+            # if we are done check if we are done with the whole epoch
+            
+            if ( self.cur_batch >= len(self.batched_filenames) ): 
+                
+
         for i in xrange(n):
-            t_steps = self.train_array0[indices_0[i]].shape[0]
-            index =
+            t_steps0 = self.train_array0[indices_0[i]].shape[0]
+            index = self.mini_batch_index[0]
             if (index == -1):
-                batch_x[i] = self.train_array0[indices_0[i]][t_steps-self.window_size:t_steps]
+                mini_batch_x[i] = self.train_array0[indices_0[i]][t_steps0-self.window_size:t_steps0]
             else:
-                batch_x[i] = self.train_array0[indices_0[i]][index*self.stride:index*self.stride+self.window_size]
+                mini_batch_x[i] = self.train_array0[indices_0[i]][index*self.stride:index*self.stride+self.window_size]
+            self.mini_batch_index[0] += 1
         
         # To maintain fifty fifty ratio, this will hit the end sooner
-        # We need to oversample
+        # We need to oversample, so shuffle indices and reset iteration
+        if()
+
+
         for i in xrange(n):
             t_steps = self.train_array1[indices_1[i]].shape[0]
-            index = 
+            index = self.mini_batch_index[1]
             if (index == -1):
                 batch_x[n+i] = self.train_array1[indices_1[i]][t_steps-self.window_size:t_steps]
             else:
                 batch_x[n+i] = self.train_array1[indices_1[i]][index*self.stride:index*self.stride+self.window_size]
+            # increment
+            self.mini_batch_index[1] += 1
         
         batch_y = np.zeros((self.batch_size, 2), dtype=float)
         batch_y[0:n, 0] = 1
@@ -156,7 +172,7 @@ class EEGDataLoader:
         np.random.set_state(rng_state)
         np.random.shuffle(batch_y)
         
-        return batch_x, batch_y
+        yield mini_batch_x, mini_batch_y
 
     def test_batch(self):
         # return
