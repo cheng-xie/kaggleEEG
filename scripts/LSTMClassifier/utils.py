@@ -84,7 +84,9 @@ class EEGDataLoader:
         Resets data indices and repartitions filenames for batches.
         '''
         # TODO: Zero out indices and clean up stuff
-
+        self.cur_batch = 0
+        self.mini_batch_index = (0,0)
+        self.train_array = ([],[])
 
         # scramble filenames and repartition
         random.shuffle(self.filenames[0])
@@ -134,37 +136,40 @@ class EEGDataLoader:
         # check if we are done with this batch
         if ( self.mini_batch_index[0] + n >= len(self.window_indices[0]) ): 
             # if we are done check if we are done with the whole epoch
-            
-            if ( self.cur_batch >= len(self.batched_filenames) ): 
-                
+            if ( self.cur_batch + 1 >= len(self.batched_filenames) ): 
+                raise StopIteration()
+            self.next_batch()
 
         for i in xrange(n):
-            t_steps0 = self.train_array0[indices_0[i]].shape[0]
-            index = self.mini_batch_index[0]
+            seq, win_t = self.window_indices[0][self.mini_batch_index[0]]
+            t_steps = self.train_array[0][seq].shape[0]
             if (index == -1):
-                mini_batch_x[i] = self.train_array0[indices_0[i]][t_steps0-self.window_size:t_steps0]
+                mini_batch_x[i] = self.train_array[0][seq][t_steps-self.window_size:t_steps]
             else:
-                mini_batch_x[i] = self.train_array0[indices_0[i]][index*self.stride:index*self.stride+self.window_size]
+                start = win_t * self.stride
+                mini_batch_x[i] = self.train_array[0][seq][start:start+self.window_size]
             self.mini_batch_index[0] += 1
         
         # To maintain fifty fifty ratio, this will hit the end sooner
         # We need to oversample, so shuffle indices and reset iteration
-        if()
-
+        if ( self.mini_batch_index[1] + n >= len(self.window_indices[1]) ): 
+            # Shuffle and reset
+            random.shuffle(self.window_indices[1])
+            self.mini_batch_index[1] = 0
 
         for i in xrange(n):
-            t_steps = self.train_array1[indices_1[i]].shape[0]
-            index = self.mini_batch_index[1]
+            seq, win_t = self.window_indices[1][self.mini_batch_index[1]]
+            t_steps = self.train_array[1][seq].shape[0]
             if (index == -1):
-                batch_x[n+i] = self.train_array1[indices_1[i]][t_steps-self.window_size:t_steps]
+                mini_batch_x[i] = self.train_array[1][seq][t_steps-self.window_size:t_steps]
             else:
-                batch_x[n+i] = self.train_array1[indices_1[i]][index*self.stride:index*self.stride+self.window_size]
-            # increment
-            self.mini_batch_index[1] += 1
-        
-        batch_y = np.zeros((self.batch_size, 2), dtype=float)
-        batch_y[0:n, 0] = 1
-        batch_y[n:2*n, 1] = 1
+                start = win_t * self.stride
+                mini_batch_x[i] = self.train_array[1][seq][start:start+self.window_size]
+            self.mini_batch_index[1] += 1         
+
+        mini_batch_y = np.zeros((self.batch_size, 2), dtype=float)
+        mini_batch_y[0:n, 0] = 1
+        mini_batch_y[n:2*n, 1] = 1
 
         # Trust me will shuffle the same way
         rng_state = np.random.get_state()
@@ -172,7 +177,7 @@ class EEGDataLoader:
         np.random.set_state(rng_state)
         np.random.shuffle(batch_y)
         
-        yield mini_batch_x, mini_batch_y
+        return mini_batch_x, mini_batch_y
 
     def test_batch(self):
         # return
