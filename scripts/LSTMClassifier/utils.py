@@ -14,9 +14,9 @@ class EEGDataLoader:
     
     MAX_LOAD_FILES = 200
 
-    def __init__(self, traindir, testdir, batch_size, window_size, stride):
+    def __init__(self, traindir, testdir, mini_batch_size, window_size, stride):
         # Save paramaters
-        self.batch_size = batch_size
+        self.mini_batch_size = mini_batch_size
         self.window_size = window_size
         self.stride = stride
         
@@ -50,19 +50,29 @@ class EEGDataLoader:
         self.batch_indices = ([],[])
         self.load_batch()
 
+        #
+        self.mini_batch_index = 0
+
     def load_batch(self):
         '''
         Loads the files of the current batch cycle.
         Sets up the indices for shuffling minibatches.
         '''
         self.train_array = ([],[])
-        for filename in self.batched_filenames[self.cur_batch][0]:
+        self.batch_indices = ([],[])
+
+        # iterate over files, add them 
+        for i, filename in enumerate(self.batched_filenames[self.cur_batch][0]):
             self.train_array[0].append(np.load(filename)['data'][()])
-        for filename in self.batched_filenames[self.cur_batch][1]:
-            self.train_array[1].append(np.load(filename)['data'][()])
+            n = self.train_array[0][-1].shape[0]
+            windows = (n-1-self.window_size)/self.stride
+            self.batch_indices[0] += [ (i,x) for x in xrange(-1, windows+1) ]
         
-        self.batch_indices[0] = [(x,y) for x in xrange(stuff) for y in xrange(stuff)]
-        self.batch_indices[1] = [(x,y) for x in xrange(stuff) for y in xrange(stuff)]
+        for i, filename in enumerate(self.batched_filenames[self.cur_batch][1]):
+            self.train_array[1].append(np.load(filename)['data'][()])
+            n = self.train_array[1][-1].shape[0]
+            windows = (n-1-self.window_size)/self.stride
+            self.batch_indices[1] += [ (i,x) for x in xrange(-1, windows+1) ]
         
         random.shuffle(self.batch_indices[0])
         random.shuffle(self.batch_indices[1])
@@ -114,22 +124,23 @@ class EEGDataLoader:
     def next_mini_batch(self):
         # generate random batch, make sure to keep proportion between 
         # positive and negative samples
-        n = self.batch_size/2
-        batch_x = np.zeros((self.batch_size, self.window_size, 16))
-        indices_0 = np.random.randint(len(self.train_array0), size = n)
-        indices_1 = np.random.randint(len(self.train_array1), size = n)
-        
+        n = self.mini_batch_size/2
+        batch_x = np.zeros((self.mini_batch_size, self.window_size, 16))
+       
+         
         for i in xrange(n):
             t_steps = self.train_array0[indices_0[i]].shape[0]
-            index = np.random.randint(-1, (t_steps-1-self.window_size)/self.stride)
+            index =
             if (index == -1):
                 batch_x[i] = self.train_array0[indices_0[i]][t_steps-self.window_size:t_steps]
             else:
                 batch_x[i] = self.train_array0[indices_0[i]][index*self.stride:index*self.stride+self.window_size]
-            
+        
+        # To maintain fifty fifty ratio, this will hit the end sooner
+        # We need to oversample
         for i in xrange(n):
             t_steps = self.train_array1[indices_1[i]].shape[0]
-            index = np.random.randint(-1, (t_steps-1-self.window_size)/self.stride)
+            index = 
             if (index == -1):
                 batch_x[n+i] = self.train_array1[indices_1[i]][t_steps-self.window_size:t_steps]
             else:
