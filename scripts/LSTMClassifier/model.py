@@ -8,13 +8,14 @@ from utils import EEGDataLoader
 learning_rate = 0.00006
 training_iters = 100000
 batch_size = 64 
-display_step = 4
+display_step = 8
+checkpoint_step = 512
 
 n_channels = 16
-n_hidden = 128 
+n_hidden = 256 
 n_classes = 2
 
-n_steps = 2048 
+n_steps = 512 
 
 x = tf.placeholder("float", [batch_size, n_steps, n_channels])
 y = tf.placeholder("float", [batch_size, n_classes])
@@ -60,16 +61,24 @@ init = tf.initialize_all_variables()
 with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=4)) as sess:
     stride = n_steps
     trainf = sys.argv[1]
-    testf = ''
+    testf = sys.argv[2]
+    savef = sys.argv[3]
     print("Loading data files")
     dataloader = EEGDataLoader(trainf, testf, batch_size, n_steps, stride)  
     sess.run(init)
     step = 1
     ma_acc = 0
     ma_loss = 0
-
-    while step * batch_size < training_iters:
-        batch_x, batch_y = dataloader.next()
+    saver = tf.train.Saver()
+    while step < training_iters:
+        try:
+            batch_x, batch_y = dataloader.next()
+        except StopIteration:
+            print('~~~~~~~~~~~~~~~~~~~~~')
+            print('~~~~~~~~EPOCH~~~~~~~~')
+            print('~~~~~~~~~~~~~~~~~~~~~')
+            dataloader.next_epoch()
+            batch_x, batch_y = dataloader.next()
         # Run optimization op (backprop)
         sess.run(optimizer, feed_dict={x: batch_x, y: batch_y})
         if step % display_step == 0:
@@ -86,6 +95,21 @@ with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=4)) as sess:
                   "{:.5f}".format(acc) + ", MA Loss= " + \
                   "{:.6f}".format(ma_loss) + ", MA Training= " + \
                   "{:.5f}".format(ma_acc))
+
+        if step % checkpoint_step == 0:
+            # Save a checkpoint
+            # Cross validate
+            total_acc = 0
+            test_steps = 10
+            for i in range(test_steps):
+                test_data, test_label = dataloader.next_test_batch()
+                cross_acc = sess.run(accuracy, feed_dict={x: test_data, y: test_label})
+                total_acc += cross_acc
+            
+            total_acc = total_acc / test_steps
+            print("Cross Validation Acc= " + "{:.5f}".format(total_acc))
+            saver.save(sess, savef + 'model.ckpt')
+
         step += 1
     print("Optimization Finished!")
 
